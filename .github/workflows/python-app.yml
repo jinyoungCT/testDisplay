@@ -60,7 +60,7 @@ jobs:
         pytest ./example.py --junitxml="result.xml"
         
     - name: Publish Unit Test Results
-      uses: EnricoMi/publish-unit-test-result-action@v1
+      uses: EnricoMi/publish-unit-test-result-action@v1.35
       if: always()
       with:
         files: ./**/*.xml
