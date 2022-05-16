@@ -1,0 +1,66 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Python application
+
+on:
+  pull_request:
+    branches: 
+      - "*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.9"
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 pytest
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        
+    - name: Download Cloud SQL Auth Proxy
+      run: |
+        wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy
+        chmod +x cloud_sql_proxy
+        
+    - name: create-json
+      uses: jsdaniell/create-json@1.1.2
+      with:
+        name: "dev_data_credential.json"
+        json: ${{ secrets.DEV_DATALAKE_CRE }}
+        
+    - name: create-json
+      uses: jsdaniell/create-json@1.1.2
+      with:
+        name: "sandworks_credential.json"
+        json: ${{ secrets.SANDWORKS_CRE}}
+        
+    - name: Run sql datalake service
+      run: |
+       ./cloud_sql_proxy -instances=dev-datasource:asia-northeast3:sql-datalake-service=tcp:3311 -credential_file=./dev_data_credential.json & 
+      
+    - name: Run sanworks sanlinks
+      run: |
+       ./cloud_sql_proxy -instances=sandworks:asia-northeast3:sandworks-sandlinks=tcp:3312 -credential_file=./sandworks_credential.json &
+    
+    
+    - name: Test with pytest
+      run: |
+        pytest ./example.py --junitxml="result.xml"
+        
+    - name: Publish Unit Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v1.35
+      if: always()
+      with:
+        files: ./**/*.xml
